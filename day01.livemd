@@ -1,0 +1,93 @@
+# Advent of code 2025 - Day 1
+
+## Description
+
+[Day 1: Secret Entrance](https://adventofcode.com/2025/day/1)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day01.txt")
+    |> String.split("\n")
+    |> Enum.filter(&(&1 != ""))
+  end
+end
+```
+
+```elixir
+defmodule Day1 do
+  defp parse(input) do
+    input
+    |> Enum.map(fn i -> String.split_at(i, 1) end)
+    |> Enum.map(fn {d, nr} -> {d, String.to_integer(nr)} end)
+  end
+
+  defp move(pos, "L", nr), do: Integer.mod(pos - nr, 100)
+  defp move(pos, "R", nr), do: Integer.mod(pos + nr, 100)
+
+  defp count_zeros_part1(new_pos), do: if(new_pos == 0, do: 1, else: 0)
+
+  defp count_zeros_part2(pos, "L", nr) do
+    dist = if pos == 0, do: 100, else: pos
+    if nr >= dist, do: 1 + div(nr - dist, 100), else: 0
+  end
+
+  defp count_zeros_part2(pos, "R", nr) do
+    dist = 100 - pos
+    if nr >= dist, do: 1 + div(nr - dist, 100), else: 0
+  end
+
+  defp solve(input, count_fn) do
+    parse(input)
+    |> Enum.reduce({50, 0}, fn {d, nr}, {pos, count} ->
+      new_pos = move(pos, d, nr)
+      zeros = count_fn.(pos, new_pos, d, nr)
+      {new_pos, count + zeros}
+    end)
+    |> elem(1)
+  end
+
+  def part1(input), do: solve(input, fn _pos, new_pos, _d, _nr -> count_zeros_part1(new_pos) end)
+
+  def part2(input), do: solve(input, fn pos, _new_pos, d, nr -> count_zeros_part2(pos, d, nr) end)
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+  L68
+  L30
+  R48
+  L5
+  R60
+  L55
+  L1
+  L99
+  R14
+  L82
+  """
+
+  test "Part 1 test input should result in 3" do
+    assert Day1.part1(@input |> String.split("\n") |> Enum.filter(&(&1 != ""))) == 3
+  end
+
+  test "Part 2 test input should result in 6" do
+    assert Day1.part2(@input |> String.split("\n") |> Enum.filter(&(&1 != ""))) == 6
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day1.part1(Load.input())
+```
+
+```elixir
+Day1.part2(Load.input())
+```
