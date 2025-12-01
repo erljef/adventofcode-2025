@@ -1,0 +1,50 @@
+# Advent of code 2025 - Day x
+
+## Description
+
+[x](https://adventofcode.com/2025/day/x)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/x.txt")
+    |> String.split("\n")
+    |> Enum.filter(&(&1 != ""))
+  end
+end
+```
+
+```elixir
+defmodule DayX do
+  def part1(input) do
+  end
+
+  def part2(input) do
+  end
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+         """
+         
+  test "" do
+    assert 1 == 0
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+DayX.part1(Load.input())
+```
+
+```elixir
+DayX.part2(Load.input())
+```
