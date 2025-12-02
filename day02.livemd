@@ -1,0 +1,90 @@
+# Advent of code 2025 - Day 2
+
+## Description
+
+[Day 2: Gift Shop](https://adventofcode.com/2025/day/2)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day02.txt")
+  end
+end
+```
+
+```elixir
+defmodule Day2 do
+  defp parse(input) do
+    input
+    |> String.replace("\n", "")
+    |> String.split(",")
+    |> Enum.map(fn range -> String.split(range, "-") end)
+    |> Enum.map(fn [f, s] -> {String.to_integer(f), String.to_integer(s)} end)
+  end
+
+  def invalid_part1?(number) do
+    string = Integer.to_string(number)
+    {f, s} = String.split_at(string, div(String.length(string), 2))
+    f == s
+  end
+
+  def invalid_part2?(number) do
+    Regex.match?(~r/^(.+)\1+$/, Integer.to_string(number))
+  end
+
+  def invalid_value(value, invalidator) do
+    if invalidator.(value) do
+      value
+    else
+      0
+    end
+  end
+
+  def range_invalid({s, e}, invalidator) do
+    Enum.reduce(s..e, [], fn value, acc -> if invalidator.(value) do [value | acc] else acc end end)
+  end 
+
+  def solve(input, invalidator) do
+    parse(input) 
+    |> Enum.map(fn range -> range_invalid(range, invalidator) end)
+    |> List.flatten()
+    |> Enum.reduce(0, fn value, acc -> invalid_value(value, invalidator) + acc end)
+  end
+  
+  def part1(input), do: solve(input, &invalid_part1?/1)
+
+  def part2(input), do: solve(input, &invalid_part2?/1)
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+  11-22,95-115,998-1012,1188511880-1188511890,222220-222224,
+  1698522-1698528,446443-446449,38593856-38593862,565653-565659,
+  824824821-824824827,2121212118-2121212124
+  """
+
+  test "part 1 - invalid ids add up" do
+    assert Day2.part1(@input) == 1_227_775_554
+  end
+
+  test "part 2 - invalid ids add up" do
+    assert Day2.part2(@input) == 4_174_379_265
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day2.part1(Load.input())
+```
+
+```elixir
+Day2.part2(Load.input())
+```
