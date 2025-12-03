@@ -1,0 +1,99 @@
+# Advent of code 2025 - Day 3
+
+## Description
+
+[Day 3 - Lobby](https://adventofcode.com/2025/day/3)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day03.txt")
+  end
+end
+```
+
+```elixir
+defmodule Day3 do
+  defp parse(input) do
+    input
+    |> String.split("\n")
+    |> Enum.filter(&(&1 != ""))
+  end
+
+  def solve(input, batteries) do
+    parse(input)
+    |> Enum.map(fn line ->
+      String.graphemes(line)
+      |> Enum.map(&String.to_integer/1)
+      |> largest(batteries)
+    end)
+    |> Enum.sum()
+  end
+
+  def largest(list, batteries) do
+    drops_allowed = length(list) - batteries
+
+    # Build a stack using the largest numbers with a limited number of dropped 
+    # items (to get a stack at least <batteries> items long)
+    {resulting_stack, _remaining_drops} =
+      Enum.reduce(list, {[], drops_allowed}, fn num, {stack, drops_left} ->
+        update_stack(stack, num, drops_left)      
+      end)
+
+    resulting_stack
+    |> Enum.reverse()
+    |> Enum.take(batteries)
+    |> Enum.join()
+    |> String.to_integer()
+  end
+
+  defp update_stack([], num, drops), do: {[num], drops}
+
+  defp update_stack([top | rest] = stack, num, drops) do
+    cond do
+      drops > 0 and num > top ->
+        update_stack(rest, num, drops - 1)
+
+      true ->
+        {[num | stack], drops}
+    end
+  end
+
+  def part1(input), do: solve(input, 2)
+
+  def part2(input), do: solve(input, 12)
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+  987654321111111
+  811111111111119
+  234234234234278
+  818181911112111
+  """
+
+  test "part 1 - test input should give a total of 357" do
+    assert Day3.part1(@input) == 357
+  end
+
+  test "part 2" do
+    assert Day3.part2(@input) == 3121910778619
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day3.part1(Load.input())
+```
+
+```elixir
+Day3.part2(Load.input())
+```
