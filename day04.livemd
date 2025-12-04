@@ -1,0 +1,115 @@
+# Advent of code 2025 - Day 4
+
+## Description
+
+[Day 4 - Printing Department](https://adventofcode.com/2025/day/4)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day04.txt")
+  end
+end
+```
+
+```elixir
+defmodule Day4 do
+  defp parse(input) do
+    input
+    |> String.split("\n")
+    |> Enum.filter(&(&1 != ""))
+  end
+
+  defp parse_to_grid_map(input) do
+    grid = parse(input)
+
+    for {row, r} <- Enum.with_index(grid),
+        {char, c} <- row |> String.graphemes() |> Enum.with_index(),
+        into: %{} do
+      {{r, c}, char}
+    end
+  end
+
+  defp find_removable(grid_map) do
+    grid_map
+    |> Enum.filter(fn {{r, c}, char} ->
+      char == "@" and count_adjacent_at(grid_map, r, c) < 4
+    end)
+    |> Enum.map(fn {pos, _} -> pos end)
+  end
+
+  defp remove_positions(grid_map, positions) do
+    Enum.reduce(positions, grid_map, fn pos, acc ->
+      Map.put(acc, pos, ".")
+    end)
+  end
+
+  defp count_adjacent_at(grid_map, row, col) do
+    for dr <- -1..1, dc <- -1..1, dr != 0 or dc != 0, reduce: 0 do
+      count ->
+        if Map.get(grid_map, {row + dr, col + dc}) == "@",
+          do: count + 1,
+          else: count
+    end
+  end
+
+  def part1(input) do
+    input |> parse_to_grid_map() |> find_removable() |> length()
+  end
+
+  def part2(input) do
+    input |> parse_to_grid_map() |> remove_until_stable()
+  end
+
+  defp remove_until_stable(grid_map, total_removed \\ 0) do
+    case find_removable(grid_map) do
+      [] ->
+        total_removed
+
+      positions ->
+        grid_map
+        |> remove_positions(positions)
+        |> remove_until_stable(total_removed + length(positions))
+    end
+  end
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+  ..@@.@@@@.
+  @@@.@.@.@@
+  @@@@@.@.@@
+  @.@@@@..@.
+  @@.@@@@.@@
+  .@@@@@@@.@
+  .@.@.@.@@@
+  @.@@@.@@@@
+  .@@@@@@@@.
+  @.@.@@@.@.
+  """
+
+  test "part 1" do
+    assert Day4.part1(@input) == 13
+  end
+
+  test "part 2" do
+    assert Day4.part2(@input) == 43
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day4.part1(Load.input())
+```
+
+```elixir
+Day4.part2(Load.input())
+```
