@@ -1,0 +1,108 @@
+# Advent of code 2025 - Day 5
+
+## Description
+
+[Day 5 - Cafeteria](https://adventofcode.com/2025/day/5)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day05.txt")
+  end
+end
+```
+
+```elixir
+defmodule Day5 do
+  defp parse(input) do
+    [ranges, ids] =
+      input
+      |> String.split("\n\n")
+
+    {
+      ranges
+      |> String.trim()
+      |> String.split("\n")
+      |> Enum.map(fn s -> String.split(s, "-") |> Enum.map(&String.to_integer/1) end),
+      ids
+      |> String.trim()
+      |> String.split("\n")
+      |> Enum.filter(&(&1 != ""))
+      |> Enum.map(&String.to_integer/1)
+    }
+  end
+
+  def part1(input) do
+    {ranges, ids} = parse(input)
+
+    ids
+    |> Enum.reduce(0, fn id, acc ->
+      if Enum.any?(ranges, fn [s, e] -> id >= s && id <= e end) do
+        acc + 1
+      else
+        acc
+      end
+    end)
+  end
+
+  def merge_ranges(ranges) do
+    ranges
+    |> Enum.sort_by(fn [s, _e] -> s end)
+    |> Enum.reduce([], fn [s, e], acc ->
+      case acc do
+        [] -> [[s, e]]
+        [[prev_s, prev_e] | rest] when s <= prev_e + 1 ->
+          [[prev_s, max(prev_e, e)] | rest]
+        _ -> [[s, e] | acc]
+      end
+    end)
+  end
+  
+  def part2(input) do
+    {ranges, _ids} = parse(input)
+
+    merge_ranges(ranges)
+    |> Enum.reduce(0, fn [s, e], acc -> acc + (e - s + 1) end)
+  end
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+  3-5
+  10-14
+  16-20
+  12-18
+
+  1
+  5
+  8
+  11
+  17
+  32  
+  """
+
+  test "part 1" do
+    assert Day5.part1(@input) == 3
+  end
+
+  test "part 2" do
+    assert Day5.part2(@input) == 14
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day5.part1(Load.input())
+```
+
+```elixir
+Day5.part2(Load.input())
+```
