@@ -1,0 +1,155 @@
+# Advent of code 2025 - Day 6
+
+## Description
+
+[Day 6 - Trash Compactor](https://adventofcode.com/2025/day/6)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day06.txt")
+  end
+end
+```
+
+```elixir
+defmodule Day6 do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, " ", trim: true))
+  end
+
+  def part1(input) do
+    parse(input)
+    |> Enum.zip()
+    |> Enum.map(&Tuple.to_list/1)
+    |> Enum.map(fn list ->
+      [List.last(list) | List.delete_at(list, length(list) - 1) |> Enum.map(&String.to_integer/1)]
+    end)
+    |> Enum.reduce(0, fn expression, sum ->
+      sum + calculate(expression)
+    end)
+  end
+
+  def calculate(expression) do
+    {_op, sum} =
+      expression
+      |> Enum.reduce({nil, nil}, fn item, {op, sum} ->
+        if is_nil(op) do
+          {item, nil}
+        else
+          if is_nil(sum) do
+            {op, item}
+          else
+            apply_operator({op, sum}, item)
+          end
+        end
+      end)
+
+    sum
+  end
+
+  def apply_operator({op, sum}, item) do
+    case op do
+      "*" -> {op, sum * item}
+      "+" -> {op, sum + item}
+      _ -> raise "invalid operator " <> op
+    end
+  end
+
+  def part2(input) do
+    lines = String.split(input, "\n", trim: true)
+    {number_lines, [operator_line]} = Enum.split(lines, -1)
+
+    num_columns = Enum.count(String.split(operator_line, " ", trim: true))
+
+    col_widths =
+      number_lines
+      |> Enum.map(&String.split(&1, " ", trim: true))
+      |> Enum.zip()
+      |> Enum.map(fn col_tuple ->
+        col_tuple |> Tuple.to_list() |> Enum.map(&String.length/1) |> Enum.max()
+      end)
+
+    col_boundaries =
+      col_widths
+      |> Enum.scan(0, fn width, acc -> acc + width + 1 end)
+      |> then(&[0 | &1])
+
+    padded_lines =
+      number_lines
+      |> Enum.map(fn line ->
+        line
+        |> String.graphemes()
+        |> Enum.with_index()
+        |> Enum.map(fn {char, i} ->
+          is_separator = Enum.member?(col_boundaries, i + 1)
+          if not is_separator and char == " ", do: "-", else: char
+        end)
+        |> Enum.join()
+      end)
+
+    actual_numbers =
+      padded_lines
+      |> Enum.map(fn line ->
+        line |> String.reverse() |> String.split(" ")
+      end)
+      |> List.flatten()
+      |> Enum.chunk_every(num_columns)
+      |> Enum.zip()
+      |> Enum.map(&Tuple.to_list/1)
+      |> Enum.map(fn inner_list ->
+        inner_list
+        |> Enum.map(&String.graphemes/1)
+        |> Enum.zip()
+        |> Enum.map(fn tuple -> Tuple.to_list(tuple) |> Enum.join() end)
+        |> Enum.map(fn item -> String.replace(item, "-", "") |> String.to_integer() end)
+      end)
+
+    operators = operator_line |> String.split() |> Enum.reverse()
+
+    {expressions, _} =
+      actual_numbers
+      |> Enum.reduce({[], operators}, fn expression, {expressions, [operator | operators]} ->
+        {[[operator | expression] | expressions], operators}
+      end)
+
+    expressions
+    |> Enum.reduce(0, fn expression, sum -> calculate(expression) + sum end)
+  end
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+  123 328  51 64 
+   45 64  387 23 
+    6 98  215 314
+  *   +   *   +  
+  """
+
+  test "part 1" do
+    assert Day6.part1(@input) == 4_277_556
+  end
+
+  test "part 2" do
+    assert Day6.part2(@input) == 3_263_827
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day6.part1(Load.input())
+```
+
+```elixir
+Day6.part2(Load.input())
+```
