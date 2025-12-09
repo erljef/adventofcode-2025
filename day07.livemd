@@ -1,0 +1,151 @@
+# Advent of code 2025 - Day 7
+
+## Description
+
+[Day 7 - Laboratories](https://adventofcode.com/2025/day/7)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day07.txt")
+  end
+end
+```
+
+```elixir
+defmodule Day7 do
+  defp parse_grid(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {line, row}, grid ->
+      line
+      |> String.graphemes()
+      |> Enum.with_index()
+      |> Enum.reduce(grid, fn
+        {char, col}, acc when char in ["S", "^"] -> Map.put(acc, {row, col}, char)
+        _, acc -> acc
+      end)
+    end)
+  end
+
+  defp find_start(grid) do
+    Enum.find_value(grid, fn
+      {pos, "S"} -> pos
+      _ -> nil
+    end)
+  end
+
+  defp max_row(grid), do: grid |> Map.keys() |> Enum.map(&elem(&1, 0)) |> Enum.max()
+
+  def part1(input) do
+    grid = parse_grid(input)
+    start = find_start(grid)
+    max = max_row(grid)
+
+    simulate(MapSet.new([start]), grid, max, 0)
+  end
+
+  defp simulate(positions, grid, max, splits) do
+    {next_positions, next_splits} =
+      Enum.reduce(positions, {MapSet.new(), splits}, fn {row, col}, {acc, count} ->
+        next_row = row + 1
+
+        cond do
+          next_row > max ->
+            {acc, count}
+
+          Map.get(grid, {next_row, col}) == "^" ->
+            {acc |> MapSet.put({next_row, col - 1}) |> MapSet.put({next_row, col + 1}), count + 1}
+
+          true ->
+            {MapSet.put(acc, {next_row, col}), count}
+        end
+      end)
+
+    case MapSet.size(next_positions) do
+      0 -> next_splits
+      _ -> simulate(next_positions, grid, max, next_splits)
+    end
+  end
+
+  def part2(input) do
+    grid = parse_grid(input)
+    start = find_start(grid)
+    max = max_row(grid)
+
+    {count, _memo} = count_paths(start, grid, max, %{})
+    count
+  end
+
+  defp count_paths({row, col} = pos, grid, max, memo) do
+    case Map.fetch(memo, pos) do
+      {:ok, cached} ->
+        {cached, memo}
+
+      :error ->
+        next_row = row + 1
+
+        cond do
+          next_row > max ->
+            {1, Map.put(memo, pos, 1)}
+
+          Map.get(grid, {next_row, col}) == "^" ->
+            {left_count, memo} = count_paths({next_row, col - 1}, grid, max, memo)
+            {right_count, memo} = count_paths({next_row, col + 1}, grid, max, memo)
+            total = left_count + right_count
+            {total, Map.put(memo, pos, total)}
+
+          true ->
+            {count, memo} = count_paths({next_row, col}, grid, max, memo)
+            {count, Map.put(memo, pos, count)}
+        end
+    end
+  end
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+  .......S.......
+  ...............
+  .......^.......
+  ...............
+  ......^.^......
+  ...............
+  .....^.^.^.....
+  ...............
+  ....^.^...^....
+  ...............
+  ...^.^...^.^...
+  ...............
+  ..^...^.....^..
+  ...............
+  .^.^.^.^.^...^.
+  ...............
+  """
+
+  test "part 1" do
+    assert Day7.part1(@input) == 21
+  end
+
+  test "part 2" do
+    assert Day7.part2(@input) == 40
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day7.part1(Load.input())
+```
+
+```elixir
+Day7.part2(Load.input())
+```
