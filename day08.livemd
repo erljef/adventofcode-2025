@@ -1,0 +1,143 @@
+# Advent of code 2025 - Day 8
+
+## Description
+
+[Day 8 - Playground](https://adventofcode.com/2025/day/8)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day08.txt")
+  end
+end
+```
+
+```elixir
+defmodule Day8 do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, ",", trim: true))
+    |> Enum.map(fn list ->
+      [x, y, z] = Enum.map(list, &String.to_integer/1)
+      {x, y, z}
+    end)
+  end
+
+  def euclidean_distance({x1, y1, z1}, {x2, y2, z2}) do
+    :math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
+  end
+
+  def generate_pairs(points) do
+    for p1 <- points, p2 <- points, p1 < p2 do
+      {euclidean_distance(p1, p2), p1, p2}
+    end
+    |> Enum.sort()
+  end
+
+  def part1(input, count) do
+    points = parse(input)
+    pairs = generate_pairs(points)
+    initial_circuits = points |> Enum.map(fn point -> [point] end)
+
+    circuits =
+      pairs
+      |> Enum.take(count)
+      |> Enum.reduce(initial_circuits, fn {_dist, p1, p2}, circuits ->
+        {circuit1, rest} = Enum.split_with(circuits, fn c -> p1 in c end)
+        {circuit2, rest} = Enum.split_with(rest, fn c -> p2 in c end)
+        merged = List.flatten(circuit1) ++ List.flatten(circuit2)
+        [merged | rest]
+      end)
+
+    circuits
+    |> Enum.map(&length/1)
+    |> Enum.sort()
+    |> Enum.reverse()
+    |> Enum.take(3)
+    |> Enum.reduce(fn length, result -> length * result end)
+  end
+
+  def part2(input) do
+    points = parse(input)
+    pairs = generate_pairs(points)
+    initial_circuits = points |> Enum.map(fn point -> [point] end)
+    total_points = length(points)
+
+    last_pair =
+      pairs
+      |> Enum.reduce_while(
+        initial_circuits,
+        fn {_dist, p1, p2}, circuits ->
+          {circuit1, rest} = Enum.split_with(circuits, fn c -> p1 in c end)
+          {circuit2, rest} = Enum.split_with(rest, fn c -> p2 in c end)
+          merged = List.flatten(circuit1) ++ List.flatten(circuit2)
+          new_circuits = [merged | rest]
+
+          circuits
+          |> Enum.map(&length/1)
+
+          [merged | rest]
+
+          if length(merged) == total_points do
+            {:halt, {p1, p2}}
+          else
+            {:cont, new_circuits}
+          end
+        end
+      )
+
+    {{x1, _, _}, {x2, _, _}} = last_pair
+    x1 * x2
+  end
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+  162,817,812
+  57,618,57
+  906,360,560
+  592,479,940
+  352,342,300
+  466,668,158
+  542,29,236
+  431,825,988
+  739,650,466
+  52,470,668
+  216,146,977
+  819,987,18
+  117,168,530
+  805,96,715
+  346,949,466
+  970,615,88
+  941,993,340
+  862,61,35
+  984,92,344
+  425,690,689
+  """
+
+  test "part 1" do
+    assert Day8.part1(@input, 10) == 40
+  end
+
+  test "part 2" do
+    assert Day8.part2(@input) == 25272
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day8.part1(Load.input(), 1000)
+```
+
+```elixir
+Day8.part2(Load.input())
+```
