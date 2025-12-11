@@ -1,0 +1,255 @@
+# Advent of code 2025 - Day 10
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.18.0"}
+])
+
+```
+
+## Description
+
+[Day 10 - Factory](https://adventofcode.com/2025/day/10)
+
+### Part 1: Toggle Lights
+
+Each line has indicator lights (initially off) and buttons. Each button toggles specific lights.
+Find the minimum button presses to reach the target light pattern.
+
+**Solution:** BFS (Breadth-First Search) exploring all states. Since pressing a button twice
+cancels out, we only need to consider each button pressed 0 or 1 time → at most 2^n states.
+
+### Part 2: Joltage Counters
+
+Part 2 broke me and I resorted to using mainly Github Copilot to devise a solution based on others' solutions.
+
+**Solution:** Parity-based divide-and-conquer recursion:
+
+1. Observe that Part 1's toggle logic is equivalent to counting button presses mod 2 (parity)
+2. For target joltages, compute their parities (odd/even)
+3. Use Part 1 logic to find all button combinations achieving those parities
+4. For each valid combination: apply those presses, subtract from targets, divide by 2, recurse
+5. The problem size halves at each level → O(log(max_target)) depth
+
+This transforms an exponential search into a polynomial-time algorithm with memoization.
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day10.txt")
+  end
+end
+```
+
+```elixir
+defmodule Day10 do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&parse_line/1)
+  end
+
+  defp parse_line(line) do
+    [target_str] = Regex.run(~r/\[([.#]+)\]/, line, capture: :all_but_first)
+    target = String.graphemes(target_str) |> Enum.map(&(&1 == "#"))
+
+    buttons =
+      Regex.scan(~r/\(([0-9,]+)\)/, line, capture: :all_but_first)
+      |> Enum.map(fn [nums] -> 
+        nums |> String.split(",") |> Enum.map(&String.to_integer/1) |> MapSet.new()
+      end)
+
+    [tuple_str] = Regex.run(~r/\{([0-9,]+)\}/, line, capture: :all_but_first)
+    joltages = tuple_str |> String.split(",") |> Enum.map(&String.to_integer/1)
+
+    {target, buttons, joltages}
+  end
+
+  def part1(input) do
+    parse(input)
+    |> Enum.map(fn {target, buttons, _} ->
+      initial = List.duplicate(false, length(target))
+      bfs(initial, target, buttons)
+    end)
+    |> Enum.sum()
+  end
+
+  defp bfs(initial, target, buttons) do
+    do_bfs(:queue.from_list([{initial, 0}]), target, buttons, MapSet.new([initial]))
+  end
+
+  defp do_bfs(queue, target, buttons, visited) do
+    case :queue.out(queue) do
+      {:empty, _} -> :no_solution
+      {{:value, {^target, presses}}, _} -> presses
+      {{:value, {state, presses}}, rest} ->
+        {new_queue, new_visited} =
+          Enum.reduce(buttons, {rest, visited}, fn btn, {q, vis} ->
+            next = toggle(state, btn)
+            if MapSet.member?(vis, next), do: {q, vis},
+            else: {:queue.in({next, presses + 1}, q), MapSet.put(vis, next)}
+          end)
+        do_bfs(new_queue, target, buttons, new_visited)
+    end
+  end
+
+  defp toggle(state, button) do
+    state |> Enum.with_index() |> Enum.map(fn {v, i} ->
+      if MapSet.member?(button, i), do: not v, else: v
+    end)
+  end
+
+  def part2(input, progress_frame \\ nil) do
+    parsed = parse(input)
+    total = length(parsed)
+    counter = :counters.new(1, [:atomics])
+    
+    if progress_frame do
+      Kino.Frame.render(progress_frame, Kino.Text.new("Starting: 0/#{total}"))
+    end
+    
+    parsed
+    |> Task.async_stream(
+      fn {_, buttons, joltages} ->
+        result = solve_joltages(joltages, buttons)
+        :counters.add(counter, 1, 1)
+        if progress_frame do
+          Kino.Frame.render(progress_frame, 
+            Kino.Text.new("Completed: #{:counters.get(counter, 1)}/#{total}"))
+        end
+        result
+      end,
+      timeout: :infinity,
+      max_concurrency: System.schedulers_online()
+    )
+    |> Enum.map(fn {:ok, result} -> result end)
+    |> Enum.sum()
+  end
+
+  defp solve_joltages(target, buttons) do
+    size = length(target)
+    num_buttons = length(buttons)
+    
+    # Build matrix[i] = set of buttons affecting position i
+    matrix = for i <- 0..(size - 1) do
+      buttons
+      |> Enum.with_index()
+      |> Enum.filter(fn {btn, _} -> MapSet.member?(btn, i) end)
+      |> Enum.map(fn {_, j} -> j end)
+      |> MapSet.new()
+    end
+    
+    memo = :ets.new(:memo, [:set, :private])
+    result = min_presses(target, matrix, num_buttons, memo)
+    :ets.delete(memo)
+    result
+  end
+
+  defp min_presses(target, matrix, num_buttons, memo) do
+    cond do
+      Enum.all?(target, &(&1 == 0)) -> 0
+      Enum.any?(target, &(&1 < 0)) -> 1_000_000
+      true ->
+        key = List.to_tuple(target)
+        case :ets.lookup(memo, key) do
+          [{_, cached}] -> cached
+          [] ->
+            result = do_min_presses(target, matrix, num_buttons, memo)
+            :ets.insert(memo, {key, result})
+            result
+        end
+    end
+  end
+
+  defp do_min_presses(target, matrix, num_buttons, memo) do
+    # Target parities (which positions need odd count)
+    parities = Enum.map(target, &(rem(&1, 2) == 1))
+    
+    # Find all button combos achieving these parities
+    valid_combos = find_parity_combos(parities, matrix, num_buttons)
+    
+    if valid_combos == [] do
+      1_000_000
+    else
+      valid_combos
+      |> Enum.map(fn combo ->
+        presses = MapSet.size(combo)
+        remaining = subtract_and_halve(target, combo, matrix)
+        
+        if Enum.any?(remaining, &(&1 < 0)) do
+          1_000_000
+        else
+          2 * min_presses(remaining, matrix, num_buttons, memo) + presses
+        end
+      end)
+      |> Enum.min()
+    end
+  end
+
+  defp find_parity_combos(target_parities, matrix, num_buttons) do
+    # Enumerate all 2^n button combinations
+    for combo <- 0..(Bitwise.bsl(1, num_buttons) - 1),
+        combo_set = int_to_set(combo, num_buttons),
+        parities_match?(combo_set, target_parities, matrix),
+        do: combo_set
+  end
+
+  defp int_to_set(n, num_buttons) do
+    for j <- 0..(num_buttons - 1), Bitwise.band(n, Bitwise.bsl(1, j)) != 0, into: MapSet.new(), do: j
+  end
+
+  defp parities_match?(combo, target_parities, matrix) do
+    matrix
+    |> Enum.zip(target_parities)
+    |> Enum.all?(fn {affected_by, target_parity} ->
+      count = Enum.count(combo, &MapSet.member?(affected_by, &1))
+      (rem(count, 2) == 1) == target_parity
+    end)
+  end
+
+  defp subtract_and_halve(target, combo, matrix) do
+    Enum.zip(target, matrix)
+    |> Enum.map(fn {t, affected_by} ->
+      contribution = Enum.count(combo, &MapSet.member?(affected_by, &1))
+      div(t - contribution, 2)
+    end)
+  end
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+  [.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
+  [...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
+  [.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
+  """
+
+  test "part 1" do
+    assert Day10.part1(@input) == 7
+  end
+
+  test "part 2" do
+    assert Day10.part2(@input) == 33
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day10.part1(Load.input())
+```
+
+```elixir
+frame = Kino.Frame.new()
+```
+
+```elixir
+Kino.render(frame)
+Day10.part2(Load.input(), frame)
+```
