@@ -1,0 +1,109 @@
+# Advent of code 2025 - Day 9
+
+## Description
+
+[Day 9 - Movie Theater](https://adventofcode.com/2025/day/9)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day09.txt")
+  end
+end
+```
+
+```elixir
+defmodule Day9 do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn row ->
+      String.split(row, ",") |> Enum.map(&String.to_integer/1) |> List.to_tuple()
+    end)
+  end
+
+  def part1(input) do
+    coordinates = parse(input)
+
+    for {x1, y1} <- coordinates,
+        {x2, y2} <- coordinates,
+        reduce: 0 do
+      acc -> max(acc, abs(x2 - x1 + 1) * abs(y2 - y1 + 1))
+    end
+  end
+
+  def part2(input) do
+    coordinates = parse(input)
+    boundary = build_boundary_segments(coordinates)
+
+    for {x1, y1} <- coordinates,
+        {x2, y2} <- coordinates,
+        x1 < x2 and y1 != y2,
+        rectangle_fits_inside?(x1, x2, min(y1, y2), max(y1, y2), boundary),
+        reduce: 0 do
+      acc -> max(acc, (x2 - x1 + 1) * (abs(y2 - y1) + 1))
+    end
+  end
+
+  defp build_boundary_segments(coordinates) do
+    coordinates
+    |> Enum.chunk_every(2, 1, [hd(coordinates)])
+    |> Enum.map(fn [{x1, y1}, {x2, y2}] ->
+      if x1 == x2,
+        do: {:vertical, x1, Enum.min_max([y1, y2])},
+        else: {:horizontal, y1, Enum.min_max([x1, x2])}
+    end)
+  end
+
+  defp rectangle_fits_inside?(x1, x2, y1, y2, boundary) do
+    not Enum.any?(boundary, fn segment ->
+      segment_crosses_interior?(segment, x1, x2, y1, y2)
+    end)
+  end
+
+  defp segment_crosses_interior?({:vertical, x, {seg_y1, seg_y2}}, x1, x2, y1, y2) do
+    x > x1 and x < x2 and seg_y2 > y1 and seg_y1 < y2
+  end
+
+  defp segment_crosses_interior?({:horizontal, y, {seg_x1, seg_x2}}, x1, x2, y1, y2) do
+    y > y1 and y < y2 and seg_x2 > x1 and seg_x1 < x2
+  end
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+  7,1
+  11,1
+  11,7
+  9,7
+  9,5
+  2,5
+  2,3
+  7,3
+  """
+
+  test "part 1" do
+    assert Day9.part1(@input) == 50
+  end
+
+  test "part 2" do
+    assert Day9.part2(@input) == 24
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day9.part1(Load.input())
+```
+
+```elixir
+Day9.part2(Load.input())
+```
