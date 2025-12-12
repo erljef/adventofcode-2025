@@ -1,0 +1,132 @@
+# Advent of code 2025 - Day 11
+
+## Description
+
+[Day 11 - Reactor](https://adventofcode.com/2025/day/11)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day11.txt")
+  end
+end
+```
+
+```elixir
+defmodule Day11 do
+  defp parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line -> String.split(line, ":", trim: true) end)
+    |> Enum.map(fn [input, outs] -> {input, String.split(outs, " ", trim: true)} end)
+    |> Map.new()
+  end
+
+  def part1(input) do
+    graph = parse(input)
+    count_paths(graph, "you", "out", [])
+  end
+
+  def part2(input) do
+    graph = parse(input)
+    count_paths(graph, "svr", "out", ["fft", "dac"])
+  end
+
+  defp count_paths(graph, start, finish, must_visit) do
+    must_visit = MapSet.new(must_visit)
+    {count, _cache} = count_paths(graph, start, finish, must_visit, _seen = MapSet.new(), _cache = %{})
+    count
+  end
+
+  defp count_paths(_graph, node, node, must_visit, seen, cache) do
+    if MapSet.subset?(must_visit, seen), do: {1, cache}, else: {0, cache}
+  end
+
+  defp count_paths(graph, node, finish, must_visit, seen, cache) do
+    seen = if node in must_visit, do: MapSet.put(seen, node), else: seen
+    cache_key = {node, seen}
+
+    if Map.has_key?(cache, cache_key) do
+      {cache[cache_key], cache}
+    else
+      {total, cache} =
+        Map.get(graph, node, [])
+        |> Enum.reduce({0, cache}, fn neighbor, {sum, cache} ->
+          {count, cache} = count_paths(graph, neighbor, finish, must_visit, seen, cache)
+          {sum + count, cache}
+        end)
+
+      {total, Map.put(cache, cache_key, total)}
+    end
+  end
+end
+```
+
+```elixir
+Day11.part2("""
+svr: aaa bbb
+aaa: fft
+fft: ccc
+bbb: tty
+tty: ccc
+ccc: ddd eee
+ddd: hub
+hub: fff
+eee: dac
+dac: fff
+fff: ggg hhh
+ggg: out
+hhh: out
+""")
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  test "part 1" do
+    assert Day11.part1("""
+           aaa: you hhh
+           you: bbb ccc
+           bbb: ddd eee
+           ccc: ddd eee fff
+           ddd: ggg
+           eee: out
+           fff: out
+           ggg: out
+           hhh: ccc fff iii
+           iii: out
+           """) == 5
+  end
+
+  test "part 2" do
+    assert Day11.part2("""
+           svr: aaa bbb
+           aaa: fft
+           fft: ccc
+           bbb: tty
+           tty: ccc
+           ccc: ddd eee
+           ddd: hub
+           hub: fff
+           eee: dac
+           dac: fff
+           fff: ggg hhh
+           ggg: out
+           hhh: out
+           """) == 2
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day11.part1(Load.input())
+```
+
+```elixir
+Day11.part2(Load.input())
+```
