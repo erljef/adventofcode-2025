@@ -1,0 +1,118 @@
+<!-- livebook:{"file_entries":[{"name":"realization.jpeg","type":"attachment"}]} -->
+
+# Advent of code 2025 - Day 12
+
+## Description
+
+[Day 12 - Christmas Tree Farm](https://adventofcode.com/2025/day/12)
+
+Like so many others I also fell into the trap of trying to implement some sort of bin packing and I didn't even realize that after pruning the impossible regions that all of the others were possible. This image blatantly stolen from the r/adventofcode subreddit sums it up.
+
+It is particularly devious that the pruning works for the actual input but not for the test input.
+
+![](files/realization.jpeg)
+
+```elixir
+defmodule Load do
+  def input do
+    File.read!("#{__DIR__}/inputs/day12.txt")
+  end
+end
+```
+
+```elixir
+defmodule Day12 do
+  def parse(input) do
+    parts = String.split(input, "\n\n", trim: true)
+
+    {shape_parts, region_parts} =
+      Enum.split_with(parts, fn part -> String.contains?(part, ":\n") end)
+
+    shapes =
+      shape_parts
+      |> Enum.map(fn part ->
+        [_header | grid_lines] = String.split(part, "\n", trim: true)
+
+        for {line, row} <- Enum.with_index(grid_lines),
+            {char, col} <- Enum.with_index(String.graphemes(line)),
+            char == "#",
+            do: {row, col}
+      end)
+
+    regions =
+      region_parts
+      |> Enum.flat_map(&String.split(&1, "\n", trim: true))
+      |> Enum.map(fn line ->
+        [size_part, amounts_part] = String.split(line, ": ")
+        [width, height] = size_part |> String.split("x") |> Enum.map(&String.to_integer/1)
+        amounts = amounts_part |> String.split(" ") |> Enum.map(&String.to_integer/1)
+        {{width, height}, amounts}
+      end)
+
+    {shapes, regions}
+  end
+
+  def part1(input) do
+    {_shapes, regions} = parse(input)
+
+    Enum.count(regions, fn {{width, height}, amounts} ->
+      num_shapes = Enum.sum(amounts)
+      div(height, 3) * div(width, 3) >= num_shapes
+    end)
+  end
+end
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule Test do
+  use ExUnit.Case, async: true
+
+  @input """
+  0:
+  ###
+  ##.
+  ##.
+
+  1:
+  ###
+  ##.
+  .##
+
+  2:
+  .##
+  ###
+  ##.
+
+  3:
+  ##.
+  ###
+  ##.
+
+  4:
+  ###
+  #..
+  ###
+
+  5:
+  ###
+  .#.
+  ###
+
+  4x4: 0 0 0 0 2 0
+  12x5: 1 0 1 0 2 2
+  12x5: 1 0 1 0 3 2
+  """
+
+  test "part 1" do
+    assert Day12.part1(@input) == 2
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+Day12.part1(Load.input())
+```
